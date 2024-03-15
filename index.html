@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chrome Sign Builder</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-alpha2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body class="container mt-5">
+    <h1 class="text-center">Chrome Sign Builder URL Rotator JSON Tool</h1>
+    <form id="scheduleForm">
+        <div id="urlsContainer">
+            <div class="row mb-3">
+                <div class="col">
+                    <label for="url1" class="form-label">URL 1:</label>
+                    <input type="text" class="form-control" name="urls[]" placeholder="Enter URL" required>
+                </div>
+                <div class="col-4">
+                    <label for="duration1" class="form-label">Duration (minutes) 1:</label>
+                    <input type="number" class="form-control" name="durations[]" placeholder="Enter duration" min="1" required>
+                </div>
+            </div>
+        </div>
+        <button type="button" class="btn btn-success mb-3" onclick="addUrl()">Add Another URL</button>
+        <div class="row mb-3">
+            <div class="col">
+                <label for="startTime" class="form-label">Start Time (HH:MM:SS):</label>
+                <input type="text" class="form-control" id="startTime" name="startTime" placeholder="Enter start time" value="07:00:00" required>
+            </div>
+            <div class="col">
+                <label for="endTime" class="form-label">End Time (HH:MM:SS):</label>
+                <input type="text" class="form-control" id="endTime" name="endTime" placeholder="Enter end time" value="17:00:00" required>
+            </div>
+        </div>
+        <button type="button" class="btn btn-primary" onclick="generateJSON()">Generate JSON</button>
+        <br>
+        <div class="row">
+            <div class="col">
+                <label for="jsonOutput" class="form-label">JSON Output:</label>
+                <div class="input-group mb-3">
+                    <textarea id="jsonOutput" class="form-control" rows="10" cols="50" readonly></textarea>
+                    <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard()">Copy</button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <script>
+        let urlCounter = 1;
+
+        function addUrl() {
+            urlCounter++;
+
+            const urlsContainer = document.getElementById('urlsContainer');
+
+            const newRow = document.createElement('div');
+            newRow.classList.add('row', 'mb-3');
+            newRow.innerHTML = `
+                <div class="col">
+                    <label for="url${urlCounter}" class="form-label">URL ${urlCounter}:</label>
+                    <input type="text" class="form-control" name="urls[]" placeholder="Enter URL" required>
+                </div>
+                <div class="col-4">
+                    <label for="duration${urlCounter}" class="form-label">Duration (minutes) ${urlCounter}:</label>
+                    <input type="number" class="form-control" name="durations[]" placeholder="Enter duration" min="1" required>
+                </div>
+            `;
+
+            urlsContainer.appendChild(newRow);
+        }
+
+        function generateJSON() {
+            const urls = document.querySelectorAll('[name="urls[]"]');
+            const durations = document.querySelectorAll('[name="durations[]"]');
+            // Fixed timezone to Asia/Singapore
+            const timezone = 'Asia/Singapore'; // Since we're fixing the timezone, no need to get it from a select element
+            const startTime = document.getElementById('startTime').value;
+            const endTime = document.getElementById('endTime').value;
+
+            const slides = [];
+
+            urls.forEach((urlElement, i) => {
+                const url = urlElement.value;
+                const duration = parseInt(durations[i].value, 10) * 60 * 1000; // Convert to milliseconds
+                slides.push({
+                    "content": url,
+                    "duration": duration,
+                });
+            });
+
+            const schedule = {
+                "schedule": {
+                    "Value": [
+                        {
+                            "name": "Generated Schedule",
+                            "items": []
+                        }
+                    ]
+                }
+            };
+
+            // Assuming Asia/Singapore timezone, we directly use it in date manipulation.
+            // Note: JavaScript Date does not support timezone adjustments inherently for formatting,
+            // so consider using libraries like moment-timezone for more complex timezone manipulations.
+
+            let currentDate = new Date();
+            let currentStartTime = new Date(currentDate.toDateString() + ' ' + startTime);
+            let currentEndTime = new Date(currentDate.toDateString() + ' ' + endTime);
+
+            slides.forEach(slide => {
+                if (currentStartTime >= currentEndTime) return; // Exit if start time exceeds end time
+
+                const item = {
+                    ...slide,
+                    "start": currentStartTime.toISOString(), // Timezone consideration needed for accurate scheduling
+                    "zone": "fs",
+                    "autoReload": 3600000,
+                    "cachePolicy": "forever",
+                    "repetition": "daily",
+                    "zoneHeight": "100%",
+                    "zoneWidth": "100%",
+                    "zoneXOffset": "0",
+                    "zoneYOffset": "0"
+                };
+
+                schedule.schedule.Value[0].items.push(item);
+
+                // Increment currentStartTime by slide duration
+                currentStartTime = new Date(currentStartTime.getTime() + slide.duration);
+            });
+
+            const jsonOutput = JSON.stringify(schedule, null, 2);
+            document.getElementById('jsonOutput').value = jsonOutput;
+        }
+
+        function copyToClipboard() {
+            const jsonOutput = document.getElementById('jsonOutput');
+            jsonOutput.select();
+            document.execCommand('copy');
+            alert('JSON copied to clipboard!');
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-alpha2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>
